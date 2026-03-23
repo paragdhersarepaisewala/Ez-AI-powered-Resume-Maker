@@ -59,6 +59,10 @@ export default function App() {
 
   const [currentVersionId, setCurrentVersionId] = useState<string>(versions[0].id);
   const [activeTemplate, setActiveTemplate] = useState<TemplateType>(TemplateType.BASIC);
+  const [fontSize, setFontSize] = useState<number>(() => {
+    const saved = localStorage.getItem('craftcv_fontsize');
+    return saved ? parseInt(saved, 10) : 13;
+  });
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -151,7 +155,7 @@ export default function App() {
   };
 
   const renderTemplate = () => {
-    const props: TemplateProps = { data, onChange: updateData, resolvedProfileImageUrl: resolvedProfileImageUrl ?? undefined };
+    const props: TemplateProps = { data, onChange: updateData, resolvedProfileImageUrl: resolvedProfileImageUrl ?? undefined, fontSize };
     switch (activeTemplate) {
       case TemplateType.BASIC:
         return <BasicTemplate {...props} />;
@@ -343,6 +347,27 @@ export default function App() {
                   <div className="mt-2 h-12 sm:h-16 w-full bg-slate-200 dark:bg-slate-700 rounded-lg group-hover:bg-slate-300 dark:group-hover:bg-slate-600 transition-colors"></div>
                 </button>
               ))}
+            </div>
+
+            {/* Font Size Control */}
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">Font Size</span>
+              <div className="flex items-center gap-2 flex-1">
+                <button
+                  onClick={() => { const v = Math.max(10, fontSize - 1); setFontSize(v); localStorage.setItem('craftcv_fontsize', String(v)); }}
+                  className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center text-base"
+                >−</button>
+                <input
+                  type="range" min={10} max={18} step={1} value={fontSize}
+                  onChange={(e) => { const v = Number(e.target.value); setFontSize(v); localStorage.setItem('craftcv_fontsize', String(v)); }}
+                  className="flex-1 accent-indigo-600 h-1.5 rounded-full cursor-pointer"
+                />
+                <button
+                  onClick={() => { const v = Math.min(18, fontSize + 1); setFontSize(v); localStorage.setItem('craftcv_fontsize', String(v)); }}
+                  className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center text-base"
+                >+</button>
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 w-9 text-right">{fontSize}px</span>
+              </div>
             </div>
           </section>
 

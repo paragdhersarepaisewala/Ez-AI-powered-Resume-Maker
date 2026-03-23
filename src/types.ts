@@ -71,4 +71,5 @@ export interface TemplateProps {
   data: ResumeData;
   onChange?: (data: ResumeData) => void;
   resolvedProfileImageUrl?: string;
+  fontSize?: number; // base font size in px, applies to entire document
 }
