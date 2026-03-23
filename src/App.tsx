@@ -196,7 +196,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl lg:hidden">
             <button
               onClick={() => setView('edit')}
               className={cn(
