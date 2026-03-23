@@ -1,20 +1,29 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { ResumeData } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-export async function structureResumeData(unstructuredText: string): Promise<Partial<ResumeData['aiContent']>> {
-  console.log("Preparing to call ai.models.generateContent");
-  console.log("ApiKey empty?", !process.env.GEMINI_API_KEY);
+export async function structureResumeData(
+  unstructuredText: string,
+  jobDescription?: string
+): Promise<Partial<ResumeData['aiContent']>> {
+  const jobContextBlock = jobDescription?.trim()
+    ? `\n      JOB DESCRIPTION (tailor the resume to this role, mirror its keywords and language):\n      ${jobDescription.trim()}\n      `
+    : '';
+
+  const keywordInstruction = jobDescription?.trim()
+    ? `- Keyword Matching: Mirror the exact keywords, tools, and phrases from the Job Description in skills, summary, and experience descriptions. ATS systems scan for these exact matches.`
+    : `- Skills: Each skill name MUST be 2-3 words maximum.`;
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Parse the following unstructured resume information into a structured JSON format. 
-      
+      contents: `Parse the following unstructured resume information into a structured JSON format.
+      ${jobContextBlock}
       CRITICAL INSTRUCTION: You MUST ensure the content fits perfectly on a single A4 page.
-      - Profile Summary/Bio: MUST be between 40 and 50 words.
-      - Work Experience: If there are multiple experiences, limit each to exactly 20 words. If there is only one, limit it to 40 words. Focus on impact and key responsibilities.
-      - Skills: Each skill name MUST be 2-3 words maximum.
+      - Profile Summary/Bio: MUST be between 40 and 50 words. ${jobDescription?.trim() ? 'Tailor it to the job description using the same terminology.' : ''}
+      - Work Experience: If there are multiple experiences, limit each to exactly 20 words. If there is only one, limit it to 40 words. Focus on measurable impact and key responsibilities.
+      ${keywordInstruction}
       - Education, Goals, Hobbies, and other details: Limit each entry to 10-20 words.
       - Portfolio & Links: If the user provides links (e.g., Portfolio, GitHub, LinkedIn), you MUST create a Custom Section with the title 'Links' or 'Portfolio' and list them in the content.
       
@@ -38,7 +47,6 @@ export async function structureResumeData(unstructuredText: string): Promise<Par
       }
     });
 
-    console.log("Response from Gemini API text:", response.text);
     let rawText = response.text || "{}";
     rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(rawText);

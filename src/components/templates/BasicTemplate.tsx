@@ -15,6 +15,7 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
   const renderSection = (id: string) => {
     switch (id) {
       case 'experience':
+        if (data.aiContent.experience.length === 0) return null;
         return (
           <section key="experience">
             <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-4">Experience</h2>
@@ -33,6 +34,7 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'education':
+        if (data.aiContent.education.length === 0) return null;
         return (
           <section key="education">
             <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-4">Education</h2>
@@ -51,6 +53,7 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'skills':
+        if (data.aiContent.skills.length === 0) return null;
         return (
           <section key="skills">
             <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-3">Skills</h2>
@@ -73,6 +76,7 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'hobbies':
+        if (data.aiContent.hobbies.length === 0) return null;
         return (
           <section key="hobbies">
             <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-3">Hobbies</h2>
@@ -84,6 +88,7 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'goals':
+        if (!data.aiContent.goals?.trim()) return null;
         return (
           <section key="goals">
             <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-3">Goals</h2>
@@ -133,10 +138,12 @@ export const BasicTemplate: React.FC<TemplateProps> = ({ data }) => {
         </div>
       </header>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-3">Professional Summary</h2>
-        <p className="text-slate-700 leading-relaxed">{data.aiContent.summary}</p>
-      </section>
+      {data.aiContent.summary?.trim() && (
+        <section className="mb-8">
+          <h2 className="text-lg font-bold text-slate-900 uppercase border-b border-slate-200 mb-3">Professional Summary</h2>
+          <p className="text-slate-700 leading-relaxed">{data.aiContent.summary}</p>
+        </section>
+      )}
 
       {rightColumnSections.length > 0 ? (
         <div className="grid grid-cols-3 gap-8 flex-1 overflow-hidden">

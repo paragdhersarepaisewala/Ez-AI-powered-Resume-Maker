@@ -2,7 +2,6 @@ export enum TemplateType {
   BASIC = 'BASIC',
   ATS = 'ATS',
   DESIGNER = 'DESIGNER',
-  GLASSMORPHISM = 'GLASSMORPHISM'
 }
 
 export interface Education {
@@ -71,4 +70,5 @@ export interface ResumeVersion {
 export interface TemplateProps {
   data: ResumeData;
   onChange?: (data: ResumeData) => void;
+  resolvedProfileImageUrl?: string;
 }

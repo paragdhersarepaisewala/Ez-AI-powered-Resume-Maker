@@ -3,7 +3,8 @@ import { ResumeForm } from './components/ResumeForm';
 import { BasicTemplate } from './components/templates/BasicTemplate';
 import { ATSTemplate } from './components/templates/ATSTemplate';
 import { DesignerTemplate } from './components/templates/DesignerTemplate';
-import { GlassmorphismTemplate } from './components/templates/GlassmorphismTemplate';
+
+import { loadImage } from './services/db';
 import { ResumeData, TemplateType, ResumeVersion, TemplateProps } from './types';
 import { exportToPDF, exportToWord } from './utils/export';
 import { motion, AnimatePresence } from 'motion/react';
@@ -77,6 +78,15 @@ export default function App() {
   const currentVersion = versions.find(v => v.id === currentVersionId) || versions[0];
   const data = currentVersion.data;
 
+  const [resolvedProfileImageUrl, setResolvedProfileImageUrl] = useState<string | null>(null);
+
+  // Resolve profile image URL from IndexedDB whenever the stored key changes
+  useEffect(() => {
+    const key = data?.personalInfo?.profileImage;
+    if (!key) { setResolvedProfileImageUrl(null); return; }
+    loadImage(key).then(url => setResolvedProfileImageUrl(url));
+  }, [data?.personalInfo?.profileImage]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(versions));
   }, [versions]);
@@ -141,7 +151,7 @@ export default function App() {
   };
 
   const renderTemplate = () => {
-    const props: TemplateProps = { data, onChange: updateData };
+    const props: TemplateProps = { data, onChange: updateData, resolvedProfileImageUrl: resolvedProfileImageUrl ?? undefined };
     switch (activeTemplate) {
       case TemplateType.BASIC:
         return <BasicTemplate {...props} />;
@@ -149,8 +159,6 @@ export default function App() {
         return <ATSTemplate {...props} />;
       case TemplateType.DESIGNER:
         return <DesignerTemplate {...props} />;
-      case TemplateType.GLASSMORPHISM:
-        return <GlassmorphismTemplate {...props} />;
       default:
         return <BasicTemplate {...props} />;
     }
@@ -339,7 +347,7 @@ export default function App() {
           </section>
 
           <ResumeForm
-            key={currentVersion.lastModified}
+            key={currentVersionId}
             data={data}
             onChange={updateData}
             activeTemplate={activeTemplate}

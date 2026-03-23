@@ -7,7 +7,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
+export const DesignerTemplate: React.FC<TemplateProps> = ({ data, resolvedProfileImageUrl }) => {
   const getAlignment = (id: string, defaultAlign: 'left' | 'right') => {
     return data.sectionConfig?.[id]?.alignment || defaultAlign;
   };
@@ -19,6 +19,7 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
 
     switch (id) {
       case 'experience':
+        if (data.aiContent.experience.length === 0) return null;
         return (
           <section key="experience" className={isSidebar ? "mb-8" : "mb-10"}>
             <h2 className={cn(headingSize, titleColor, !isSidebar && "mb-6")}>
@@ -43,6 +44,7 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'education':
+        if (data.aiContent.education.length === 0) return null;
         return (
           <section key="education" className={isSidebar ? "mb-8" : "mb-10"}>
             <h2 className={cn(headingSize, titleColor, !isSidebar && "mb-6")}>
@@ -67,6 +69,7 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'skills':
+        if (data.aiContent.skills.length === 0) return null;
         return (
           <section key="skills" className="mb-8">
             <h2 className={cn(headingSize, titleColor, !isSidebar && "mb-4")}>
@@ -97,6 +100,7 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'hobbies':
+        if (data.aiContent.hobbies.length === 0) return null;
         return (
           <section key="hobbies" className="mb-8">
             <h2 className={cn(headingSize, titleColor, !isSidebar && "mb-4")}>
@@ -111,6 +115,7 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
         );
       case 'goals':
+        if (!data.aiContent.goals?.trim()) return null;
         return (
           <section key="goals" className="mb-8">
             <h2 className={cn(headingSize, titleColor, !isSidebar && "mb-4")}>
@@ -157,12 +162,11 @@ export const DesignerTemplate: React.FC<TemplateProps> = ({ data }) => {
       {/* Sidebar */}
       <aside className="w-1/3 bg-slate-900 text-white p-8 space-y-8 h-full overflow-y-auto scrollbar-hide">
         <div className="flex flex-col items-center text-center">
-          {data.personalInfo.profileImage ? (
+          {resolvedProfileImageUrl ? (
             <img 
-              src={data.personalInfo.profileImage} 
+              src={resolvedProfileImageUrl} 
               alt={data.personalInfo.fullName} 
               className="w-32 h-32 rounded-full object-cover border-4 border-slate-700 mb-4"
-              referrerPolicy="no-referrer"
             />
           ) : (
             <div className="w-32 h-32 rounded-full bg-slate-800 flex items-center justify-center border-4 border-slate-700 mb-4 text-4xl font-bold">
