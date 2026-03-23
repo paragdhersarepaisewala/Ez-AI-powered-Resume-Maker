@@ -2,18 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ResumeData, CustomSection } from '../types';
 import { structureResumeData } from '../services/gemini';
 import { saveImage, loadImage, deleteImage } from '../services/db';
-import {
-  Sparkles, Loader2, User, Briefcase, Trash2, Plus, ChevronDown, ChevronUp, Layers,
-  Target
-} from 'lucide-react';
+import { Sparkles, Loader2, User, Briefcase, Trash2, Plus, ChevronDown, ChevronUp, Layers, Target, GraduationCap, Award, Heart } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
+import { Label } from './ui/Label';
+import { Accordion, AccordionItem } from './ui/Accordion';
 
-interface ResumeFormProps {
-  data: ResumeData;
-  onChange: (data: ResumeData) => void;
-  activeTemplate: string;
-}
-
-// Image key per version is stored as versionId in IndexedDB
+interface ResumeFormProps { data: ResumeData; onChange: (data: ResumeData) => void; activeTemplate: string; }
 const IMG_KEY_PREFIX = 'profile_img_';
 
 export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, activeTemplate }) => {
@@ -24,640 +21,207 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange, activeTe
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const imgKeyRef = useRef<string>('');
 
-  // Load image preview from IndexedDB when versionId changes
   useEffect(() => {
-    const versionId = data.personalInfo.fullName + '_' + (data.personalInfo.email || 'default');
-    imgKeyRef.current = IMG_KEY_PREFIX + versionId;
-    loadImage(imgKeyRef.current).then((url) => {
-      if (url) setPreviewUrl(url);
-    });
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    imgKeyRef.current = IMG_KEY_PREFIX + data.personalInfo.fullName;
+    loadImage(imgKeyRef.current).then((url) => { if (url) setPreviewUrl(url); });
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
   }, []);
 
-  const handlePersonalInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    onChange({
-      ...data,
-      personalInfo: { ...data.personalInfo, [name]: value },
-    });
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Revoke old URL
+  const handlePersonalInfo = (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...data, personalInfo: { ...data.personalInfo, [e.target.name]: e.target.value } });
+  
+  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    // Save blob to IndexedDB
+    setPreviewUrl(URL.createObjectURL(file));
     await saveImage(imgKeyRef.current, file);
-    // Store a sentinel in data so templates know an image exists
-    onChange({
-      ...data,
-      personalInfo: { ...data.personalInfo, profileImage: imgKeyRef.current },
-    });
+    onChange({ ...data, personalInfo: { ...data.personalInfo, profileImage: imgKeyRef.current } });
   };
-
+  
   const removeImage = async () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    await deleteImage(imgKeyRef.current);
-    onChange({
-      ...data,
-      personalInfo: { ...data.personalInfo, profileImage: undefined },
-    });
+    setPreviewUrl(null); await deleteImage(imgKeyRef.current);
+    onChange({ ...data, personalInfo: { ...data.personalInfo, profileImage: undefined } });
   };
 
   const handleAiMagic = async () => {
     if (!unstructuredText.trim()) return;
     setIsAiLoading(true);
     try {
-      const structured = await structureResumeData(unstructuredText, jobDescription || undefined);
-      onChange({
-        ...data,
-        aiContent: {
-          ...data.aiContent,
-          ...structured,
-          skills: structured.skills || data.aiContent.skills,
-          customSections: structured.customSections || data.aiContent.customSections,
-        } as ResumeData['aiContent'],
-      });
-    } catch (error) {
-      console.error('Error in AI Magic:', error);
-    } finally {
-      setIsAiLoading(false);
-    }
+      const s = await structureResumeData(unstructuredText, jobDescription || undefined);
+      onChange({ ...data, aiContent: { ...data.aiContent, ...s, skills: s.skills || data.aiContent.skills, customSections: s.customSections || data.aiContent.customSections } });
+    } finally { setIsAiLoading(false); }
   };
 
-  // ── Custom Sections ──────────────────────────────────────────────
-  const addCustomSection = () => {
-    const newSection: CustomSection = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: 'New Section',
-      content: '',
-    };
-    onChange({
-      ...data,
-      aiContent: { ...data.aiContent, customSections: [...(data.aiContent.customSections || []), newSection] },
-    });
+  const updateArr = (arr: any[], i: number, field: string, value: any, key: string) => {
+    const newArr = [...arr]; newArr[i] = { ...newArr[i], [field]: value };
+    onChange({ ...data, aiContent: { ...data.aiContent, [key]: newArr } });
   };
 
-  const updateCustomSection = (id: string, field: keyof CustomSection, value: string) => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        customSections: data.aiContent.customSections.map((s) =>
-          s.id === id ? { ...s, [field]: value } : s
-        ),
-      },
-    });
-  };
-
-  const removeCustomSection = (id: string) => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        customSections: data.aiContent.customSections.filter((s) => s.id !== id),
-      },
-    });
-  };
-
-  // ── Section Alignment ────────────────────────────────────────────
-  const updateSectionAlignment = (sectionId: string, alignment: 'left' | 'right') => {
-    onChange({
-      ...data,
-      sectionConfig: {
-        ...(data.sectionConfig || {}),
-        [sectionId]: { id: sectionId, alignment, order: data.sectionConfig?.[sectionId]?.order || 0 },
-      },
-    });
-  };
-
-  // ── Experience ───────────────────────────────────────────────────
-  const updateExperience = (index: number, field: string, value: string) => {
-    const newExperience = [...data.aiContent.experience];
-    newExperience[index] = { ...newExperience[index], [field]: value };
-    onChange({ ...data, aiContent: { ...data.aiContent, experience: newExperience } });
-  };
-
-  const addExperience = () => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        experience: [
-          ...data.aiContent.experience,
-          { company: '', position: '', startDate: '', endDate: '', description: '' },
-        ],
-      },
-    });
-  };
-
-  const removeExperience = (index: number) => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        experience: data.aiContent.experience.filter((_, i) => i !== index),
-      },
-    });
-  };
-
-  // ── Education ────────────────────────────────────────────────────
-  const updateEducation = (index: number, field: string, value: string) => {
-    const newEducation = [...data.aiContent.education];
-    newEducation[index] = { ...newEducation[index], [field]: value };
-    onChange({ ...data, aiContent: { ...data.aiContent, education: newEducation } });
-  };
-
-  const addEducation = () => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        education: [
-          ...data.aiContent.education,
-          { institution: '', degree: '', startDate: '', endDate: '', description: '' },
-        ],
-      },
-    });
-  };
-
-  const removeEducation = (index: number) => {
-    onChange({
-      ...data,
-      aiContent: {
-        ...data.aiContent,
-        education: data.aiContent.education.filter((_, i) => i !== index),
-      },
-    });
-  };
-
-  // ── Skills ───────────────────────────────────────────────────────
-  const updateSkill = (index: number, field: string, value: string) => {
-    const newSkills = [...data.aiContent.skills];
-    newSkills[index] = { ...newSkills[index], [field]: value };
-    onChange({ ...data, aiContent: { ...data.aiContent, skills: newSkills } });
-  };
-
-  const updateSkillLevel = (index: number, level: number) => {
-    const newSkills = [...data.aiContent.skills];
-    newSkills[index] = { ...newSkills[index], level };
-    onChange({ ...data, aiContent: { ...data.aiContent, skills: newSkills } });
-  };
-
-  const addSkill = () => {
-    onChange({
-      ...data,
-      aiContent: { ...data.aiContent, skills: [...data.aiContent.skills, { name: '', level: 3 }] },
-    });
-  };
-
-  const removeSkill = (index: number) => {
-    onChange({
-      ...data,
-      aiContent: { ...data.aiContent, skills: data.aiContent.skills.filter((_, i) => i !== index) },
-    });
-  };
-
-  const clearAllSkills = () => {
-    onChange({ ...data, aiContent: { ...data.aiContent, skills: [] } });
-  };
-
-  // ── Hobbies ──────────────────────────────────────────────────────
-  const updateHobby = (index: number, value: string) => {
-    const newHobbies = [...data.aiContent.hobbies];
-    newHobbies[index] = value;
-    onChange({ ...data, aiContent: { ...data.aiContent, hobbies: newHobbies } });
-  };
-
-  // ── Alignment Toggle (non-ATS only) ──────────────────────────────
   const AlignmentToggle = ({ sectionId }: { sectionId: string }) => {
     if (activeTemplate === 'ATS') return null;
-    const alignment = data.sectionConfig?.[sectionId]?.alignment || 'right';
+    const align = data.sectionConfig?.[sectionId]?.alignment || 'right';
     return (
-      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg gap-1 transition-colors">
-        {(['left', 'right'] as const).map((dir) => (
-          <button
-            key={dir}
-            onClick={() => updateSectionAlignment(sectionId, dir)}
-            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${alignment === dir ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
-          >
-            {dir.toUpperCase()}
+      <div className="flex bg-secondary p-1 rounded-lg gap-1 border">
+        {(['left', 'right'] as const).map((d) => (
+          <button key={d} onClick={() => onChange({ ...data, sectionConfig: { ...(data.sectionConfig || {}), [sectionId]: { id: sectionId, alignment: d, order: 0 } } })}
+            className={`px-3 py-1 text-[10px] font-bold rounded-md ${align === d ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}>
+            {d.toUpperCase()}
           </button>
         ))}
       </div>
     );
   };
 
-  const SectionHeader = ({
-    title,
-    sectionId,
-    onAdd,
-    onRemoveAll,
-    removeAllLabel = 'Remove All',
-  }: {
-    title: string;
-    sectionId?: string;
-    onAdd?: () => void;
-    onRemoveAll?: () => void;
-    removeAllLabel?: string;
-  }) => (
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
-      <div className="flex items-center gap-2">
-        {sectionId && <AlignmentToggle sectionId={sectionId} />}
-        {onRemoveAll && (
-          <button
-            onClick={onRemoveAll}
-            className="p-1.5 text-xs font-semibold text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all flex items-center gap-1"
-            title={removeAllLabel}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{removeAllLabel}</span>
-          </button>
-        )}
-        {onAdd && (
-          <button
-            onClick={onAdd}
-            className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
-            title={`Add ${title}`}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="space-y-8 pb-20">
-      {/* ── Personal Info ────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-          <User className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-          Personal Information
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { label: 'Full Name', name: 'fullName', placeholder: 'John Doe', type: 'text' },
-            { label: 'Email', name: 'email', placeholder: 'john@example.com', type: 'email' },
-            { label: 'Designation', name: 'designation', placeholder: 'Senior Web Developer', type: 'text' },
-            { label: 'Contact No', name: 'contactNo', placeholder: '+1 234 567 890', type: 'text' },
-          ].map((field) => (
-            <div key={field.name} className="space-y-1">
-              <label className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase ml-1">
-                {field.label}
-              </label>
-              <input
-                type={field.type}
-                name={field.name}
-                value={(data.personalInfo as Record<string, string>)[field.name]}
-                onChange={handlePersonalInfoChange}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm text-slate-900 dark:text-white"
-                placeholder={field.placeholder}
-              />
-            </div>
-          ))}
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase ml-1">
-              Address
-            </label>
-            <input
-              type="text"
-              name="address"
-              value={data.personalInfo.address}
-              onChange={handlePersonalInfoChange}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm text-slate-900 dark:text-white"
-              placeholder="New York, USA"
-            />
-          </div>
-          {/* Profile Image */}
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase ml-1">
-              Profile Image
-            </label>
-            {previewUrl && (
-              <div className="flex items-center gap-3 mb-2">
-                <img src={previewUrl} alt="Profile" className="w-14 h-14 rounded-full object-cover border-2 border-indigo-300 dark:border-indigo-700" />
-                <button
-                  onClick={removeImage}
-                  className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1"
-                >
-                  <Trash2 className="w-3 h-3" /> Remove
-                </button>
-              </div>
+    <div className="space-y-6 pb-32 max-w-3xl mx-auto w-full">
+      <Card className="border-primary/10 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <Sparkles className="w-5 h-5" /> AI Build Mode
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea 
+            value={unstructuredText} onChange={(e) => setUnstructuredText(e.target.value)} 
+            placeholder="Paste raw unformatted text (LinkedIn profile, rough notes)... AI will perfectly structure it." className="min-h-[120px] bg-background text-base" />
+          <div className="pt-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowJobDesc(!showJobDesc)} className="text-xs">
+              <Target className="w-4 h-4 mr-2" /> {showJobDesc ? 'Hide' : 'Add'} Job Description for ATS
+            </Button>
+            {showJobDesc && (
+              <Textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste job posting here..." className="mt-2 min-h-[100px] bg-background"/>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 dark:file:bg-indigo-500/10 file:text-indigo-700 dark:file:text-indigo-400 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-500/20 transition-all text-slate-600 dark:text-slate-300"
-            />
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 ml-1">
-              Stored locally in your browser — no upload size limit.
-            </p>
           </div>
-        </div>
-      </section>
+          <Button onClick={handleAiMagic} disabled={isAiLoading || !unstructuredText.trim()} className="w-full text-base py-6 shadow-xl shadow-primary/20">
+            {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Sparkles className="w-5 h-5 mr-2" />}
+            {isAiLoading ? 'Synthesizing...' : 'Generate Resume Magic'}
+          </Button>
+        </CardContent>
+      </Card>
 
-      {/* ── AI Content Builder ────────────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-indigo-100 dark:border-indigo-800/30 transition-colors duration-200">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            AI Content Builder
-          </h2>
-        </div>
-        <textarea
-          value={unstructuredText}
-          onChange={(e) => setUnstructuredText(e.target.value)}
-          placeholder="Paste your raw info here... AI will structure it into a professional resume."
-          className="w-full h-32 p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm leading-relaxed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-        />
-
-        {/* Job Description (optional) */}
-        <div className="mt-3">
-          <button
-            onClick={() => setShowJobDesc(!showJobDesc)}
-            className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
-          >
-            <Target className="w-3.5 h-3.5" />
-            {showJobDesc ? 'Hide' : 'Add'} Job Description (optional – for ATS targeting)
-            {showJobDesc ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-          {showJobDesc && (
-            <div className="mt-3 space-y-2">
-              <p className="text-[11px] text-indigo-700 dark:text-indigo-400 font-medium leading-relaxed bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-3 border border-indigo-100 dark:border-indigo-800/50">
-                💡 Paste the job posting here. AI will mirror its exact keywords in your resume summary, skills, and experience — boosting your ATS score significantly.
-              </p>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the full job description here..."
-                className="w-full h-28 p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm leading-relaxed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-              />
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={handleAiMagic}
-          disabled={isAiLoading || !unstructuredText.trim()}
-          className="mt-4 w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-200 dark:shadow-none active:scale-[0.98] text-sm"
-        >
-          {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-          {isAiLoading ? 'Generating...' : jobDescription.trim() ? 'Generate Job-Targeted Resume' : 'Generate Structured Content'}
-        </button>
-      </section>
-
-      {/* ── Summary ─────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Summary</h2>
-          <AlignmentToggle sectionId="summary" />
-        </div>
-        <textarea
-          value={data.aiContent.summary}
-          onChange={(e) => onChange({ ...data, aiContent: { ...data.aiContent, summary: e.target.value } })}
-          className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-          placeholder="Professional summary..."
-        />
-      </section>
-
-      {/* ── Experience ───────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <SectionHeader
-          title="Experience"
-          sectionId="experience"
-          onAdd={addExperience}
-          onRemoveAll={data.aiContent.experience.length > 0 ? () => onChange({ ...data, aiContent: { ...data.aiContent, experience: [] } }) : undefined}
-          removeAllLabel="Remove All"
-        />
-        <div className="space-y-6">
-          {data.aiContent.experience.map((exp, i) => (
-            <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 space-y-3 transition-colors relative group">
-              <button
-                onClick={() => removeExperience(i)}
-                className="absolute top-3 right-3 p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                title="Remove experience"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <input
-                type="text"
-                value={exp.position}
-                onChange={(e) => updateExperience(i, 'position', e.target.value)}
-                className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 font-bold text-slate-800 dark:text-slate-200 focus:border-indigo-500 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                placeholder="Position"
-              />
-              <input
-                type="text"
-                value={exp.company}
-                onChange={(e) => updateExperience(i, 'company', e.target.value)}
-                className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-slate-600 dark:text-slate-300 focus:border-indigo-500 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                placeholder="Company"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" value={exp.startDate} onChange={(e) => updateExperience(i, 'startDate', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-xs text-slate-500 dark:text-slate-400 focus:border-indigo-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="Start Date" />
-                <input type="text" value={exp.endDate} onChange={(e) => updateExperience(i, 'endDate', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-xs text-slate-500 dark:text-slate-400 focus:border-indigo-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="End Date / Present" />
+      <Accordion className="space-y-4">
+        <AccordionItem title={<span className="flex items-center gap-2"><User className="w-4 h-4 text-primary"/> Personal Information</span>} defaultOpen>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="space-y-1"><Label>Full Name</Label><Input name="fullName" value={data.personalInfo.fullName} onChange={handlePersonalInfo} placeholder="John Doe" /></div>
+            <div className="space-y-1"><Label>Email</Label><Input name="email" value={data.personalInfo.email} onChange={handlePersonalInfo} placeholder="john@example.com" /></div>
+            <div className="space-y-1"><Label>Designation</Label><Input name="designation" value={data.personalInfo.designation} onChange={handlePersonalInfo} placeholder="Senior Web Developer" /></div>
+            <div className="space-y-1"><Label>Contact No</Label><Input name="contactNo" value={data.personalInfo.contactNo} onChange={handlePersonalInfo} placeholder="+1 234 567 890" /></div>
+            <div className="md:col-span-2 space-y-1"><Label>Address</Label><Input name="address" value={data.personalInfo.address} onChange={handlePersonalInfo} placeholder="New York, USA" /></div>
+            <div className="md:col-span-2 space-y-2 pt-2">
+              <Label>Profile Picture</Label>
+              <div className="flex items-center gap-4">
+                {previewUrl && <img src={previewUrl} className="w-16 h-16 rounded-full object-cover shadow-md border-2 border-primary/20" alt="profile"/>}
+                <div className="flex-1">
+                  <Input type="file" accept="image/*" onChange={handleImage} className="cursor-pointer file:cursor-pointer p-0 file:py-2 file:px-4 file:bg-primary file:text-primary-foreground file:border-0 file:rounded-xl file:mr-4 file:font-semibold" />
+                </div>
+                {previewUrl && <Button variant="destructive" size="icon" onClick={removeImage}><Trash2 className="w-4 h-4"/></Button>}
               </div>
-              <textarea
-                value={exp.description}
-                onChange={(e) => updateExperience(i, 'description', e.target.value)}
-                className="w-full h-24 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                placeholder="Describe your responsibilities and achievements..."
-              />
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </AccordionItem>
 
-      {/* ── Education ────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <SectionHeader
-          title="Education"
-          sectionId="education"
-          onAdd={addEducation}
-          onRemoveAll={data.aiContent.education.length > 0 ? () => onChange({ ...data, aiContent: { ...data.aiContent, education: [] } }) : undefined}
-          removeAllLabel="Remove All"
-        />
-        <div className="space-y-6">
-          {data.aiContent.education.map((edu, i) => (
-            <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 space-y-3 transition-colors relative group">
-              <button
-                onClick={() => removeEducation(i)}
-                className="absolute top-3 right-3 p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                title="Remove education"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <input type="text" value={edu.degree} onChange={(e) => updateEducation(i, 'degree', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 font-bold text-slate-800 dark:text-slate-200 focus:border-indigo-500 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="Degree / Certificate" />
-              <input type="text" value={edu.institution} onChange={(e) => updateEducation(i, 'institution', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-slate-600 dark:text-slate-300 focus:border-indigo-500 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="Institution" />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" value={edu.startDate} onChange={(e) => updateEducation(i, 'startDate', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-xs text-slate-500 dark:text-slate-400 focus:border-indigo-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="Start Date" />
-                <input type="text" value={edu.endDate} onChange={(e) => updateEducation(i, 'endDate', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-xs text-slate-500 dark:text-slate-400 focus:border-indigo-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="End Date" />
+        <AccordionItem title={<span className="flex items-center gap-2"><Target className="w-4 h-4 text-primary"/> Professional Summary</span>}
+          headerAction={<AlignmentToggle sectionId="summary" />}>
+          <Textarea value={data.aiContent.summary} onChange={(e) => onChange({ ...data, aiContent: { ...data.aiContent, summary: e.target.value } })} className="min-h-[120px] text-base" placeholder="Professional summary..." />
+        </AccordionItem>
+
+        <AccordionItem title={<span className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-primary"/> Experience & Work History</span>}
+          headerAction={<div className="flex gap-2"><AlignmentToggle sectionId="experience" /><Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onChange({ ...data, aiContent: { ...data.aiContent, experience: [...data.aiContent.experience, { company: '', position: '', startDate: '', endDate: '', description: '' }] } }); }}><Plus className="w-4 h-4 mr-1"/> Add</Button></div>}>
+          <div className="space-y-4">
+            {data.aiContent.experience.map((exp, i) => (
+              <Card key={i} className="relative group overflow-hidden bg-background">
+                <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, experience: data.aiContent.experience.filter((_, idx) => idx !== i) } })}><Trash2 className="w-4 h-4"/></Button>
+                <CardContent className="p-4 space-y-3 pt-6">
+                  <Input value={exp.position} onChange={(e) => updateArr(data.aiContent.experience, i, 'position', e.target.value, 'experience')} placeholder="Position/Title" className="font-bold text-lg border-0 border-b rounded-none px-0 bg-transparent focus-visible:ring-0" />
+                  <Input value={exp.company} onChange={(e) => updateArr(data.aiContent.experience, i, 'company', e.target.value, 'experience')} placeholder="Company" className="border-0 border-b rounded-none px-0 bg-transparent focus-visible:ring-0" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input value={exp.startDate} onChange={(e) => updateArr(data.aiContent.experience, i, 'startDate', e.target.value, 'experience')} placeholder="Start Date" className="text-sm bg-transparent" />
+                    <Input value={exp.endDate} onChange={(e) => updateArr(data.aiContent.experience, i, 'endDate', e.target.value, 'experience')} placeholder="End Date / Present" className="text-sm bg-transparent" />
+                  </div>
+                  <Textarea value={exp.description} onChange={(e) => updateArr(data.aiContent.experience, i, 'description', e.target.value, 'experience')} placeholder="Achievements, responsibilities..." className="min-h-[100px]" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </AccordionItem>
+
+        <AccordionItem title={<span className="flex items-center gap-2"><GraduationCap className="w-4 h-4 text-primary"/> Education</span>}
+          headerAction={<div className="flex gap-2"><AlignmentToggle sectionId="education" /><Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onChange({ ...data, aiContent: { ...data.aiContent, education: [...data.aiContent.education, { institution: '', degree: '', startDate: '', endDate: '', description: '' }] } }); }}><Plus className="w-4 h-4 mr-1"/> Add</Button></div>}>
+          <div className="space-y-4">
+            {data.aiContent.education.map((edu, i) => (
+              <Card key={i} className="relative group overflow-hidden bg-background">
+                <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, education: data.aiContent.education.filter((_, idx) => idx !== i) } })}><Trash2 className="w-4 h-4"/></Button>
+                <CardContent className="p-4 space-y-3 pt-6">
+                  <Input value={edu.degree} onChange={(e) => updateArr(data.aiContent.education, i, 'degree', e.target.value, 'education')} placeholder="Degree / Certificate" className="font-bold text-lg border-0 border-b rounded-none px-0 bg-transparent focus-visible:ring-0" />
+                  <Input value={edu.institution} onChange={(e) => updateArr(data.aiContent.education, i, 'institution', e.target.value, 'education')} placeholder="Institution" className="border-0 border-b rounded-none px-0 bg-transparent focus-visible:ring-0" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input value={edu.startDate} onChange={(e) => updateArr(data.aiContent.education, i, 'startDate', e.target.value, 'education')} placeholder="Start Date" className="text-sm bg-transparent" />
+                    <Input value={edu.endDate} onChange={(e) => updateArr(data.aiContent.education, i, 'endDate', e.target.value, 'education')} placeholder="End Date" className="text-sm bg-transparent" />
+                  </div>
+                  <Input value={edu.description} onChange={(e) => updateArr(data.aiContent.education, i, 'description', e.target.value, 'education')} placeholder="GPA / Honors (optional)" className="bg-transparent" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </AccordionItem>
+
+        <AccordionItem title={<span className="flex items-center gap-2"><Award className="w-4 h-4 text-primary"/> Skills</span>}
+          headerAction={<div className="flex gap-2"><AlignmentToggle sectionId="skills" /><Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onChange({ ...data, aiContent: { ...data.aiContent, skills: [...data.aiContent.skills, { name: '', level: 5 }] } }); }}><Plus className="w-4 h-4 mr-1"/> Add</Button></div>}>
+          <div className="space-y-2">
+            {data.aiContent.skills.map((skill, i) => (
+              <div key={i} className="flex flex-col sm:flex-row items-center gap-3 p-2 bg-secondary/50 rounded-xl group relative">
+                <Input value={skill.name} onChange={(e) => updateArr(data.aiContent.skills, i, 'name', e.target.value, 'skills')} placeholder="Skill (e.g. React)" className="bg-background" />
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <button key={level} onClick={() => updateArr(data.aiContent.skills, i, 'level', level, 'skills')}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${skill.level >= level ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-background hover:bg-muted text-muted-foreground'}`}>{level}</button>
+                  ))}
+                </div>
+                <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, skills: data.aiContent.skills.filter((_, idx) => idx !== i) } })}><Trash2 className="w-4 h-4"/></Button>
               </div>
-              <input type="text" value={edu.description} onChange={(e) => updateEducation(i, 'description', e.target.value)} className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 text-xs text-slate-500 dark:text-slate-400 focus:border-indigo-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600" placeholder="GPA / Honors / Notes (optional)" />
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </AccordionItem>
 
-      {/* ── Skills ───────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <SectionHeader
-          title="Skills"
-          sectionId="skills"
-          onAdd={addSkill}
-          onRemoveAll={data.aiContent.skills.length > 0 ? clearAllSkills : undefined}
-          removeAllLabel="Remove All"
-        />
-        <div className="space-y-3">
-          {data.aiContent.skills.map((skill, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 group transition-colors">
-              <input
-                type="text"
-                value={skill.name}
-                onChange={(e) => updateSkill(index, 'name', e.target.value)}
-                className="flex-1 bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 font-bold text-slate-700 dark:text-slate-300 focus:border-indigo-500 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                placeholder="Skill Name"
-              />
-              <div className="flex gap-1 shrink-0">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => updateSkillLevel(index, level)}
-                    className={`w-6 h-6 rounded-md flex items-center justify-center transition-all text-[10px] font-bold ${skill.level >= level ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-                  >
-                    {level}
-                  </button>
+        <AccordionItem title={<span className="flex items-center gap-2"><Heart className="w-4 h-4 text-primary"/> Hobbies & Goals</span>}
+          headerAction={<AlignmentToggle sectionId="hobbies" />}>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label>Hobbies</Label>
+              <div className="flex flex-wrap gap-2">
+                {data.aiContent.hobbies.map((h, i) => (
+                  <div key={i} className="flex items-center bg-secondary rounded-lg px-2 shadow-sm border">
+                    <input value={h} onChange={(e) => { const nh = [...data.aiContent.hobbies]; nh[i] = e.target.value; onChange({...data, aiContent: {...data.aiContent, hobbies: nh}}); }} className="bg-transparent w-24 text-sm font-medium py-1.5 outline-none" />
+                    <button onClick={() => onChange({...data, aiContent: {...data.aiContent, hobbies: data.aiContent.hobbies.filter((_, idx) => idx !== i)}})} className="text-muted-foreground hover:text-destructive p-1 rounded"><Trash2 className="w-3 h-3"/></button>
+                  </div>
                 ))}
-              </div>
-              <button
-                onClick={() => removeSkill(index)}
-                className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                title="Remove skill"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          {data.aiContent.skills.length === 0 && (
-            <p className="text-sm text-slate-400 dark:text-slate-500 italic text-center py-4">
-              No skills added yet. Click + to add one or use AI Builder.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* ── Custom Sections ──────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-500" />
-            Custom Sections
-          </h2>
-          <button
-            onClick={addCustomSection}
-            className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="space-y-6">
-          {data.aiContent.customSections?.map((section) => (
-            <div key={section.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 relative group space-y-4 transition-colors">
-              <div className="flex justify-between items-center">
-                <AlignmentToggle sectionId={section.id} />
-                <button
-                  onClick={() => removeCustomSection(section.id)}
-                  className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={section.title}
-                  onChange={(e) => updateCustomSection(section.id, 'title', e.target.value)}
-                  className="w-full bg-transparent border-b border-slate-200 dark:border-slate-700 py-1 font-bold text-slate-800 dark:text-slate-200 focus:border-indigo-500 outline-none transition-all text-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                  placeholder="Section Title"
-                />
-                <textarea
-                  value={section.content}
-                  onChange={(e) => updateCustomSection(section.id, 'content', e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all h-24 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                  placeholder="Section content..."
-                />
+                <Button size="sm" variant="outline" onClick={() => onChange({...data, aiContent: {...data.aiContent, hobbies: [...data.aiContent.hobbies, '']}})} className="h-8 py-0"><Plus className="w-3 h-3 mr-1"/> Add</Button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Hobbies ─────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Hobbies</h2>
-          <div className="flex items-center gap-2">
-            <AlignmentToggle sectionId="hobbies" />
-            {data.aiContent.hobbies.length > 0 && (
-              <button
-                onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, hobbies: [] } })}
-                className="p-1.5 text-xs font-semibold text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Remove All</span>
-              </button>
-            )}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center"><Label>Career Goals</Label><AlignmentToggle sectionId="goals" /></div>
+              <Textarea value={data.aiContent.goals} onChange={(e) => onChange({...data, aiContent: {...data.aiContent, goals: e.target.value}})} placeholder="Career goals..." className="min-h-[100px] bg-background" />
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {data.aiContent.hobbies.map((hobby, i) => (
-            <div key={i} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 transition-colors">
-              <input
-                type="text"
-                value={hobby}
-                onChange={(e) => updateHobby(i, e.target.value)}
-                className="bg-transparent outline-none text-xs font-medium text-slate-600 dark:text-slate-300 w-24"
-              />
-              <button
-                onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, hobbies: data.aiContent.hobbies.filter((_, idx) => idx !== i) } })}
-                className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, hobbies: [...data.aiContent.hobbies, 'New Hobby'] } })}
-            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
-          >
-            + Add
-          </button>
-        </div>
-      </section>
+        </AccordionItem>
+          
+        <AccordionItem title={<span className="flex items-center gap-2"><Layers className="w-4 h-4 text-primary"/> Custom Sections</span>}
+          headerAction={<Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); onChange({ ...data, aiContent: { ...data.aiContent, customSections: [...(data.aiContent.customSections || []), { id: Math.random().toString(36).substr(2, 9), title: '', content: '' }] } }); }}><Plus className="w-4 h-4 mr-1"/> Add</Button>}>
+          <div className="space-y-4">
+            {data.aiContent.customSections?.map((sec) => (
+              <Card key={sec.id} className="relative group overflow-hidden bg-background">
+                <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => onChange({ ...data, aiContent: { ...data.aiContent, customSections: data.aiContent.customSections.filter(s => s.id !== sec.id) } })}><Trash2 className="w-4 h-4"/></Button>
+                <CardContent className="p-4 space-y-3 pt-6">
+                  <div className="flex justify-between"><Label>Section Title</Label><AlignmentToggle sectionId={sec.id} /></div>
+                  <Input value={sec.title} onChange={(e) => onChange({ ...data, aiContent: { ...data.aiContent, customSections: data.aiContent.customSections.map(s => s.id === sec.id ? { ...s, title: e.target.value } : s) } })} placeholder="e.g. Certifications" className="font-bold border-0 border-b rounded-none px-0 bg-transparent focus-visible:ring-0" />
+                  <Textarea value={sec.content} onChange={(e) => onChange({ ...data, aiContent: { ...data.aiContent, customSections: data.aiContent.customSections.map(s => s.id === sec.id ? { ...s, content: e.target.value } : s) } })} placeholder="Content..." className="min-h-[100px] bg-transparent" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </AccordionItem>
 
-      {/* ── Goals ───────────────────────────────────────────────────── */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Goals</h2>
-          <AlignmentToggle sectionId="goals" />
-        </div>
-        <textarea
-          value={data.aiContent.goals}
-          onChange={(e) => onChange({ ...data, aiContent: { ...data.aiContent, goals: e.target.value } })}
-          className="w-full h-24 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-          placeholder="Career goals..."
-        />
-      </section>
+      </Accordion>
     </div>
   );
 };

@@ -1,0 +1,28 @@
+{
+  "name": "projects/13532396740974864700",
+  "projectId": "13532396740974864700",
+  "title": "CraftCV Landing Page",
+  "visibility": "PRIVATE",
+  "projectType": "PROJECT_DESIGN",
+  "origin": "STITCH",
+  "deviceType": "DESKTOP",
+  "designTheme": {
+      "colorMode": "DARK",
+      "font": "SPACE_GROTESK",
+      "roundness": "ROUND_FULL",
+      "customColor": "#6366f1",
+      "headlineFont": "SPACE_GROTESK",
+      "bodyFont": "MANROPE",
+      "labelFont": "INTER"
+  },
+  "screens": {
+    "index": {
+      "id": "6b42589579034f1bb8a6bf3f59f4f0b1",
+      "sourceScreen": "projects/13532396740974864700/screens/6b42589579034f1bb8a6bf3f59f4f0b1",
+      "x": 0,
+      "y": 0,
+      "width": 2560,
+      "height": 4946
+    }
+  }
+}

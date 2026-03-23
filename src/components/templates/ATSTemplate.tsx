@@ -75,7 +75,7 @@ export const ATSTemplate: React.FC<TemplateProps> = ({ data, fontSize = 13 }) =>
       {hasSkills && (
         <section className="mb-4">
           <SectionTitle>Core Competencies &amp; Skills</SectionTitle>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3em 0.4em' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.35em' }}>
             {aiContent.skills.map((skill, i) => (
               <span
                 key={i}
@@ -86,6 +86,9 @@ export const ATSTemplate: React.FC<TemplateProps> = ({ data, fontSize = 13 }) =>
                   border: '1px solid #d1d5db',
                   borderRadius: '4px',
                   padding: '2px 8px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
                 {skill.name}
